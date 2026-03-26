@@ -28,4 +28,4 @@ Database: Mock / JSON
 2. Test SMS scan
 3. View risk score
 ##live demo
-(https://tiny-kashata-0a4e9b.netlify.app/)
+   (https://trustai-financial-bodyguard.netlify.app/)
