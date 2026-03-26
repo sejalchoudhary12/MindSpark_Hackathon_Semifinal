@@ -27,5 +27,7 @@ Database: Mock / JSON
 1. Open deployed link
 2. Test SMS scan
 3. View risk score
+
+
 ##live demo
    (https://trustai-financial-bodyguard.netlify.app/)
