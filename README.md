@@ -28,5 +28,3 @@ Database: Mock / JSON
 2. Test SMS scan
 3. View risk score
 
-## Live Demo
-(https://lovable.dev/projects/61ab9a45-6573-4642-8c22-cb34eb435090?magic_link=mc_3d5a5fdd-bd27-44c1-9799-126f05cd6aad)
