@@ -27,4 +27,5 @@ Database: Mock / JSON
 1. Open deployed link
 2. Test SMS scan
 3. View risk score
-
+##live demo
+(https://tiny-kashata-0a4e9b.netlify.app/)
