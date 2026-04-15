@@ -1,19 +1,78 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquareWarning, Scan, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
+import { MessageSquareWarning, Scan, ShieldCheck, ShieldAlert, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { analyzeSMS, getRiskColor } from "@/lib/risk-engine";
+import { analyzeSMS, getRiskColor, type AIAnalysisResult } from "@/lib/risk-engine";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+
+const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-message`;
 
 export default function SmsScanner() {
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<ReturnType<typeof analyzeSMS> | null>(null);
+  const [result, setResult] = useState<ReturnType<typeof analyzeSMS> & { summary?: string } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleScan = () => {
+  const handleLocalScan = () => {
     if (!message.trim()) return;
-    setResult(analyzeSMS(message));
+    const localResult = analyzeSMS(message);
+    setResult(localResult);
+    saveToHistory(localResult);
+  };
+
+  const handleAIScan = async () => {
+    if (!message.trim()) return;
+    setAiLoading(true);
+    try {
+      const resp = await fetch(ANALYZE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ message, type: "sms" }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "AI scan failed" }));
+        throw new Error(err.error || "AI service error");
+      }
+
+      const aiResult: AIAnalysisResult = await resp.json();
+      const combined = {
+        score: aiResult.score,
+        threats: aiResult.threats,
+        riskLevel: aiResult.riskLevel,
+        summary: aiResult.summary,
+      };
+      setResult(combined);
+      saveToHistory(combined);
+    } catch (err: any) {
+      toast({ title: "AI Analysis Error", description: err.message, variant: "destructive" });
+      // Fallback to local
+      handleLocalScan();
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const saveToHistory = async (scanResult: { score: number; threats: string[]; riskLevel: string }) => {
+    if (!user) return;
+    await supabase.from("scan_history").insert({
+      user_id: user.id,
+      type: "sms",
+      content: message.slice(0, 500),
+      risk_score: scanResult.score,
+      risk_level: scanResult.riskLevel,
+      threats: scanResult.threats,
+      blocked: scanResult.score > 70,
+    });
   };
 
   const examples = [
@@ -47,9 +106,15 @@ export default function SmsScanner() {
           onChange={(e) => setMessage(e.target.value)}
           className="min-h-[120px] bg-secondary/50 border-border/50 text-foreground resize-none"
         />
-        <Button onClick={handleScan} disabled={!message.trim()} className="w-full gap-2">
-          <Scan className="w-4 h-4" /> Analyze Message
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleLocalScan} disabled={!message.trim() || aiLoading} className="flex-1 gap-2">
+            <Scan className="w-4 h-4" /> Quick Scan
+          </Button>
+          <Button onClick={handleAIScan} disabled={!message.trim() || aiLoading} variant="outline" className="flex-1 gap-2">
+            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            AI Deep Scan
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -69,9 +134,11 @@ export default function SmsScanner() {
                   <div>
                     <h3 className="font-semibold text-foreground capitalize">{result.riskLevel} Risk</h3>
                     <p className="text-xs text-muted-foreground">
-                      {result.score <= 10 ? "This message appears safe." :
-                       result.score <= 55 ? "Some suspicious patterns detected." :
-                       "High risk! This is likely a scam."}
+                      {result.summary || (
+                        result.score <= 10 ? "This message appears safe." :
+                        result.score <= 55 ? "Some suspicious patterns detected." :
+                        "High risk! This is likely a scam."
+                      )}
                     </p>
                   </div>
                 </div>
