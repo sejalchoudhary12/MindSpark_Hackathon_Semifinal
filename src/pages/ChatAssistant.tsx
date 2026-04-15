@@ -3,53 +3,99 @@ import { motion } from "framer-motion";
 import { MessageCircle, Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-const botResponses: Record<string, string> = {
-  default: "I'm your TrustAI security assistant. I can help you understand threats, check suspicious messages, and explain how our protection systems work. What would you like to know?",
-  scam: "Common scam indicators include: urgency language, requests for personal info (SSN, passwords), suspicious links (bit.ly, tinyurl), promises of prizes/money, and impersonation of official organizations. Always verify directly with the supposed sender through official channels.",
-  protection: "Your TrustAI protection includes: Real-time SMS scanning for phishing patterns, caller ID risk scoring, transaction anomaly detection, and continuous monitoring. All protections are active and updated regularly.",
-  score: "Your Trust Score is calculated from multiple factors: SMS threat detection rate, call screening accuracy, transaction safety patterns, and your security settings. A higher score means better protection. Currently at 87/100 — great job!",
-  help: "Here's what I can help with:\n• **Scam detection** — Ask about common scam patterns\n• **Trust Score** — Understand your security rating\n• **Protection status** — Check what's active\n• **Suspicious messages** — Paste a message for analysis\n• **Security tips** — Get advice on staying safe",
-};
-
-function getResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes("scam") || lower.includes("phishing") || lower.includes("fraud")) return botResponses.scam;
-  if (lower.includes("protect") || lower.includes("safe") || lower.includes("secure")) return botResponses.protection;
-  if (lower.includes("score") || lower.includes("rating") || lower.includes("trust")) return botResponses.score;
-  if (lower.includes("help") || lower.includes("what can")) return botResponses.help;
-  return botResponses.default;
-}
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 export default function ChatAssistant() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "👋 Hi! I'm your TrustAI security assistant. Ask me anything about scams, your protection status, or security tips." },
+    { role: "assistant", content: "👋 Hi! I'm your TrustAI security assistant powered by AI. Ask me anything about scams, your protection status, or security tips." },
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const send = () => {
-    if (!input.trim()) return;
+  const send = async () => {
+    if (!input.trim() || isLoading) return;
     const userMsg: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput("");
-    setIsTyping(true);
+    setIsLoading(true);
 
-    setTimeout(() => {
-      const response = getResponse(input);
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      setIsTyping(false);
-    }, 800 + Math.random() * 700);
+    let assistantSoFar = "";
+    const upsertAssistant = (chunk: string) => {
+      assistantSoFar += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && prev.length === newMessages.length + 1) {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+        }
+        return [...prev, { role: "assistant", content: assistantSoFar }];
+      });
+    };
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Failed to get response" }));
+        throw new Error(err.error || "AI service error");
+      }
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) upsertAssistant(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (err: any) {
+      toast({ title: "AI Error", description: err.message, variant: "destructive" });
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -59,7 +105,7 @@ export default function ChatAssistant() {
           <MessageCircle className="w-6 h-6 text-primary" />
           AI Security Assistant
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Chat about threats, protection, and security tips</p>
+        <p className="text-muted-foreground text-sm mt-1">Powered by AI — Chat about threats, protection, and security tips</p>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pr-2 glass-card p-4 mb-4">
@@ -82,7 +128,7 @@ export default function ChatAssistant() {
             </div>
           </motion.div>
         ))}
-        {isTyping && (
+        {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex gap-3">
             <div className="p-2 rounded-lg bg-primary/20 text-primary">
               <Bot className="w-4 h-4" />
@@ -101,8 +147,9 @@ export default function ChatAssistant() {
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="Ask about scams, protection, or security..."
           className="bg-secondary/50 border-border/50"
+          disabled={isLoading}
         />
-        <Button onClick={send} disabled={!input.trim()} size="icon">
+        <Button onClick={send} disabled={!input.trim() || isLoading} size="icon">
           <Send className="w-4 h-4" />
         </Button>
       </div>

@@ -1,9 +1,23 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, Shield, Bell, MessageSquare, Phone, CreditCard, Eye } from "lucide-react";
+import { Settings, Shield, Bell, MessageSquare, Phone, CreditCard, Eye, LogOut, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ProtectionSetting {
   id: string;
@@ -14,6 +28,8 @@ interface ProtectionSetting {
 }
 
 export default function SettingsPage() {
+  const { user, signOut, deleteAccount } = useAuth();
+  const { toast } = useToast();
   const [settings, setSettings] = useState<ProtectionSetting[]>([
     { id: "sms", label: "SMS Protection", description: "Scan incoming messages for scam patterns", icon: MessageSquare, enabled: true },
     { id: "call", label: "Call Screening", description: "Analyze incoming calls for risk factors", icon: Phone, enabled: true },
@@ -28,6 +44,16 @@ export default function SettingsPage() {
     setSettings((prev) => prev.map((s) => s.id === id ? { ...s, enabled: !s.enabled } : s));
   };
 
+  const handleLogout = async () => {
+    await signOut();
+    toast({ title: "Signed out", description: "You have been logged out successfully." });
+  };
+
+  const handleDeleteAccount = async () => {
+    await deleteAccount();
+    toast({ title: "Account deleted", description: "Your account has been removed. You have been signed out." });
+  };
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
@@ -37,6 +63,13 @@ export default function SettingsPage() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Configure your security preferences</p>
       </div>
+
+      {user && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4">
+          <p className="text-sm text-muted-foreground">Signed in as</p>
+          <p className="text-foreground font-medium">{user.email || user.phone || "User"}</p>
+        </motion.div>
+      )}
 
       <div className="space-y-3">
         {settings.map((setting, i) => (
@@ -78,6 +111,41 @@ export default function SettingsPage() {
           <span>Balanced</span>
           <span>Aggressive</span>
         </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="space-y-3"
+      >
+        <Button onClick={handleLogout} variant="outline" className="w-full gap-2 h-12">
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </Button>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" className="w-full gap-2 h-12">
+              <Trash2 className="w-4 h-4" />
+              Delete Account
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. All your data and protection settings will be permanently removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete Account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </div>
   );
