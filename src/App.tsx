@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import SmsScanner from "@/pages/SmsScanner";
 import CallShield from "@/pages/CallShield";
 import ChatAssistant from "@/pages/ChatAssistant";
+import HistoryPage from "@/pages/HistoryPage";
 import SettingsPage from "@/pages/SettingsPage";
 import AuthPage from "@/pages/AuthPage";
 import NotFound from "@/pages/NotFound";
@@ -35,6 +36,7 @@ function ProtectedRoutes() {
         <Route path="/sms" element={<SmsScanner />} />
         <Route path="/calls" element={<CallShield />} />
         <Route path="/chat" element={<ChatAssistant />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
