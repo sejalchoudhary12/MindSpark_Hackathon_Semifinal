@@ -1,4 +1,4 @@
-import { LayoutDashboard, MessageSquareWarning, PhoneCall, MessageCircle, Settings, Shield } from "lucide-react";
+import { LayoutDashboard, MessageSquareWarning, PhoneCall, MessageCircle, Settings, Shield, History } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,6 +17,7 @@ const items = [
   { title: "SMS Scanner", url: "/sms", icon: MessageSquareWarning },
   { title: "Call Shield", url: "/calls", icon: PhoneCall },
   { title: "AI Assistant", url: "/chat", icon: MessageCircle },
+  { title: "History", url: "/history", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
