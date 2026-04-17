@@ -42,13 +42,13 @@ date-fns	Human-readable timestamps ("5 minutes ago")
 TanStack Query	Data fetching/caching layer
 ⚙️ Backend
 Technology	Purpose
-Lovable Cloud (powered by Supabase)	Full backend-as-a-service — no separate Node/Express server needed
+ Cloud (powered by Supabase)	Full backend-as-a-service — no separate Node/Express server needed
 Supabase Edge Functions (Deno)	Serverless functions: analyze-message (AI scam scan) and chat (AI assistant streaming)
 Supabase Auth	Email + password login/signup, session management
 Row Level Security (RLS)	Each user can only see/edit their own scan history
 🗄️ Database
 Technology	Purpose
-PostgreSQL (via Lovable Cloud)	Persistent storage
+PostgreSQL (via  Cloud)	Persistent storage
 scan_history table	Stores every scan: type, content, risk_score, risk_level, threats[], blocked, user_id, created_at — used by the History page
 
 ## future scope
