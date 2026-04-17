@@ -88,7 +88,28 @@ export default function CallShield() {
           <PhoneCall className="w-6 h-6 text-primary" />
           Call Risk Simulator
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Simulate incoming calls to see real-time risk analysis</p>
+        <p className="text-muted-foreground text-sm mt-1">Check any phone number or simulate an incoming call</p>
+      </div>
+
+      {/* Phone number checker */}
+      <div className="glass-card p-4 space-y-3">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
+          <Search className="w-4 h-4 text-primary" /> Check a phone number
+        </label>
+        <div className="flex gap-2">
+          <Input
+            type="tel"
+            placeholder="e.g. +1 800 555 0199"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCheckNumber()}
+            className="bg-secondary/50 border-border/50"
+          />
+          <Button onClick={handleCheckNumber} disabled={!phoneInput.trim()} className="gap-2">
+            <Shield className="w-4 h-4" /> Check
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Enter any number to analyze it for scam patterns.</p>
       </div>
 
       {/* Active call simulation */}
