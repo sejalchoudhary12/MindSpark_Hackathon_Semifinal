@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { PhoneCall, PhoneIncoming, PhoneOff, Shield, AlertTriangle, CheckCircle } from "lucide-react";
+import { PhoneCall, PhoneIncoming, PhoneOff, Shield, AlertTriangle, CheckCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { getRiskColor, getRiskLevel, type RiskLevel } from "@/lib/risk-engine";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 
@@ -25,12 +27,58 @@ const mockCalls: SimulatedCall[] = [
 export default function CallShield() {
   const [activeCall, setActiveCall] = useState<SimulatedCall | null>(null);
   const [callStatus, setCallStatus] = useState<"ringing" | "analyzing" | "result">("ringing");
+  const [phoneInput, setPhoneInput] = useState("");
+  const { toast } = useToast();
 
   const simulateCall = (call: SimulatedCall) => {
     setActiveCall(call);
     setCallStatus("ringing");
     setTimeout(() => setCallStatus("analyzing"), 1000);
     setTimeout(() => setCallStatus("result"), 2500);
+  };
+
+  const analyzePhoneNumber = (raw: string): SimulatedCall => {
+    const number = raw.trim();
+    const digits = number.replace(/\D/g, "");
+    let score = 0;
+    const reasons: string[] = [];
+
+    const known = mockCalls.find((c) => c.number.replace(/\D/g, "") === digits);
+    if (known) return { ...known, number };
+
+    if (digits.length < 7) { score += 60; reasons.push("Unusually short number"); }
+    if (digits.length > 13) { score += 40; reasons.push("Unusually long number"); }
+    if (/^(\d)\1+$/.test(digits)) { score += 70; reasons.push("Repeating-digit pattern"); }
+    if (/^1?(800|888|877|866|855)/.test(digits)) { score += 35; reasons.push("Toll-free — common scam vector"); }
+    if (number.startsWith("+") && !number.startsWith("+1")) { score += 30; reasons.push("International origin"); }
+    if (/^0+/.test(digits)) { score += 40; reasons.push("Suspicious leading zeros"); }
+    if (digits.length >= 10 && /(\d)\1{4,}/.test(digits)) { score += 25; reasons.push("Sequential repeating digits"); }
+
+    score = Math.min(score, 100);
+    const riskLevel = getRiskLevel(score);
+    const label =
+      score >= 80 ? "High-Risk Caller" :
+      score >= 50 ? "Suspicious Caller" :
+      score >= 20 ? "Unverified Caller" : "Likely Safe";
+
+    return {
+      id: `custom-${Date.now()}`,
+      number,
+      label,
+      riskScore: score,
+      riskLevel,
+      reason: reasons.length ? reasons.join(" • ") : "No suspicious patterns detected",
+    };
+  };
+
+  const handleCheckNumber = () => {
+    const trimmed = phoneInput.trim();
+    if (!trimmed) return;
+    if (!/^[\d+()\-\s]{5,}$/.test(trimmed)) {
+      toast({ title: "Invalid number", description: "Please enter a valid phone number.", variant: "destructive" });
+      return;
+    }
+    simulateCall(analyzePhoneNumber(trimmed));
   };
 
   return (
@@ -40,7 +88,28 @@ export default function CallShield() {
           <PhoneCall className="w-6 h-6 text-primary" />
           Call Risk Simulator
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Simulate incoming calls to see real-time risk analysis</p>
+        <p className="text-muted-foreground text-sm mt-1">Check any phone number or simulate an incoming call</p>
+      </div>
+
+      {/* Phone number checker */}
+      <div className="glass-card p-4 space-y-3">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
+          <Search className="w-4 h-4 text-primary" /> Check a phone number
+        </label>
+        <div className="flex gap-2">
+          <Input
+            type="tel"
+            placeholder="e.g. +1 800 555 0199"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCheckNumber()}
+            className="bg-secondary/50 border-border/50"
+          />
+          <Button onClick={handleCheckNumber} disabled={!phoneInput.trim()} className="gap-2">
+            <Shield className="w-4 h-4" /> Check
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Enter any number to analyze it for scam patterns.</p>
       </div>
 
       {/* Active call simulation */}

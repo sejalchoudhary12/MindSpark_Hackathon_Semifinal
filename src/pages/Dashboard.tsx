@@ -14,10 +14,14 @@ export default function Dashboard() {
   const threats = generateMockThreatEvents();
   const weeklyData = generateWeeklyData();
 
+  // Find the most recent blocked / high-risk threat — only alert if one exists
+  const latestBlockedThreat = threats.find((t) => t.blocked || t.score >= 70);
+
   useEffect(() => {
-    const timer = setTimeout(() => setShowAlert(true), 2000);
+    if (!latestBlockedThreat) return;
+    const timer = setTimeout(() => setShowAlert(true), 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [latestBlockedThreat]);
 
   const stats = [
     { label: "Threats Blocked", value: "24", icon: ShieldCheck, color: "text-accent" },
@@ -28,12 +32,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <AlertPopup
-        visible={showAlert}
-        title="Threat Detected"
-        message="A phishing SMS attempt was blocked. Your financial data is safe."
-        onDismiss={() => setShowAlert(false)}
-      />
+      {latestBlockedThreat && (
+        <AlertPopup
+          visible={showAlert}
+          title={latestBlockedThreat.blocked ? "Threat Blocked" : "Suspicious Activity Detected"}
+          message={latestBlockedThreat.description}
+          onDismiss={() => setShowAlert(false)}
+        />
+      )}
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">Security Dashboard</h1>
