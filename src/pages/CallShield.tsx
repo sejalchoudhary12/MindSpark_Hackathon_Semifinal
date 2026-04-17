@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { PhoneCall, PhoneIncoming, PhoneOff, Shield, AlertTriangle, CheckCircle } from "lucide-react";
+import { PhoneCall, PhoneIncoming, PhoneOff, Shield, AlertTriangle, CheckCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { getRiskColor, getRiskLevel, type RiskLevel } from "@/lib/risk-engine";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 
